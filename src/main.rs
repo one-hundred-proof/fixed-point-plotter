@@ -1,48 +1,81 @@
-use eframe::egui::{self, Color32};
-use egui_plot::{Line, Plot, PlotBounds, PlotPoints};
+use eframe::egui::{self, Color32, ScrollArea};
+use egui_plot::{Line, Plot, PlotBounds, PlotPoints,};
 
-pub struct EllipticApp;
+pub struct EllipticApp {
+    pos_branch: Vec<[f64; 2]>,
+    neg_branch: Vec<[f64; 2]>,
+}
+
+impl Default for EllipticApp {
+    fn default() -> Self {
+        Self {
+            pos_branch: Vec::new(),
+            neg_branch: Vec::new(),
+        }
+    }
+}
+
+impl EllipticApp {
+    const NUM_POINTS: usize = 2000;
+}
 
 impl eframe::App for EllipticApp {
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+
+        fn pos_points<'a>() -> Line<'a> {
+            Line::new(
+                "positive points",
+                PlotPoints::from_explicit_callback(
+                    move  |x|  {
+                        let y2 = x*x*x + 4.0;
+                        y2.sqrt()
+                    },
+                    ..,
+                    EllipticApp::NUM_POINTS
+
+                )
+            ).color(Color32::DARK_BLUE)
+
+        }
+
+        fn neg_points<'a>() -> Line<'a> {
+            Line::new(
+                "positive points",
+                PlotPoints::from_explicit_callback(
+                    move  |x|  {
+                        let y2 = x*x*x + 4.0;
+                        -y2.sqrt()
+                    },
+                    ..,
+                    EllipticApp::NUM_POINTS
+
+                )
+            ).color(Color32::DARK_BLUE)
+        }
+
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Plot of y² = x³ + 4");
-
-            // Capture the pointer position
-            let pointer_pos = ctx.input(|i| i.pointer.hover_pos());
-
-            // Check whether the mouse is inside this panel
-            let in_bounds = pointer_pos
-                .map(|pos| ui.min_rect().contains(pos))
-                .unwrap_or(false);
-
-            // if in_bounds {
-
-            // }
-
-
-            Plot::new("elliptic_plot")
+            let plot = Plot::new("elliptic_plot")
                 .legend(egui_plot::Legend::default())
-                .show(ui, |plot_ui| {
-                    let bounds: PlotBounds = plot_ui.plot_bounds();
-                    let x_min = bounds.min()[0];
-                    let x_max = bounds.max()[0];
+                .show_axes(true)
+                .show_grid(true);
 
-                    let (pos_branch, neg_branch) = sample_curve(x_min, x_max, 1000);
 
-                    let line_pos = Line::new("y = √(x³ + 4)", pos_branch)
-                        .color(Color32::DARK_BLUE);
-                    let line_neg = Line::new("y = -√(x³ + 4)", neg_branch)
-                        .color(Color32::DARK_BLUE);
-
-                    plot_ui.line(line_pos);
-                    plot_ui.line(line_neg);
-                });
+            plot.show(ui, |plot_ui| {
+                plot_ui.line(pos_points());
+                plot_ui.line(neg_points());
+            });
         });
     }
 }
 
-fn sample_curve<'a>(x_min: f64, x_max: f64, num_points: usize) -> (PlotPoints<'a>, PlotPoints<'a>) {
+fn sample_curve(
+    x_min: f64,
+    x_max: f64,
+    num_points: usize,
+) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
     let step = (x_max - x_min) / num_points as f64;
 
     let mut pos_points = Vec::with_capacity(num_points);
@@ -58,14 +91,19 @@ fn sample_curve<'a>(x_min: f64, x_max: f64, num_points: usize) -> (PlotPoints<'a
         }
     }
 
-    (PlotPoints::from(pos_points), PlotPoints::from(neg_points))
+    (pos_points, neg_points)
 }
 
-fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions::default();
+fn main() -> eframe::Result {
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1024.0, 768.0])
+            .with_min_inner_size([300.0, 220.0]),
+        ..Default::default()
+    };
     eframe::run_native(
-        "Elliptic Curve Plot (Hover-sensitive)",
-        options,
-        Box::new(|_cc| Ok(Box::new(EllipticApp))),
+        "Elliptic Curve Plot",
+        native_options,
+        Box::new(|_cc| Ok(Box::new(EllipticApp::default()))),
     )
 }
