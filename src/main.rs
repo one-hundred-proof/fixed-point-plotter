@@ -33,6 +33,7 @@ impl eframe::App for EllipticApp {
             let pointer_pos: Option<Pos2> = ctx.input(|i| i.pointer.hover_pos());
             let mouse_in_bounds = pointer_pos.map_or(false, |pos| ui.min_rect().contains(pos));
 
+
             if mouse_in_bounds && scroll_delta != egui::Vec2::ZERO {
                 // Adjust bounds with zoom
                 let zoom_factor = if scroll_delta.y > 0.0 { 0.9 } else { 1.1 };
@@ -60,9 +61,16 @@ impl eframe::App for EllipticApp {
                 self.y_max = y_mid.saturating_add(new_y_half);
 
             }
-            println!("bounds = {:?}", self);
+            // println!("bounds = {:?}", self);
 
-            let line = sample_curve_u256(self.x_min, self.x_max, 10000);
+            let line = sample_curve_u256(self.x_min, self.x_max, 1000);
+
+            println!("x_min = {:?}\nx_max = {:?}\ny_min = {:?}\ny_max = {:?}\n",
+                u256_to_f64_decimal(self.x_min, DECIMALS),
+                u256_to_f64_decimal(self.x_max, DECIMALS),
+                u256_to_f64_decimal(self.y_min, DECIMALS),
+                u256_to_f64_decimal(self.y_max, DECIMALS),
+            );
 
             Plot::new("u256_plot")
                 .legend(egui_plot::Legend::default())
@@ -72,6 +80,7 @@ impl eframe::App for EllipticApp {
                 .include_y(u256_to_f64_decimal(self.y_min, DECIMALS))
                 .include_y(u256_to_f64_decimal(self.y_max, DECIMALS))
                 .show(ui, |plot_ui| {
+                    println!("plot_ui.bounds() = {:?}", plot_ui.plot_bounds());
                     plot_ui.line(line);
                 });
         });
@@ -123,15 +132,17 @@ fn sample_curve_u256(
     num_points: usize,
 ) -> Line<'static> {
 
+    let xrange = u256_to_f64_decimal(x_min, DECIMALS)..=u256_to_f64_decimal(x_max, DECIMALS);
+
     let line = Line::new("y = f(x)", PlotPoints::from_explicit_callback(
-    move |x_f64: f64| {
+        move |x_f64: f64| {
         // Convert x_f64 -> U256
         let x_u256 = f64_to_u256_decimal(x_f64, DECIMALS);
         let y_u256 = plot_fun(x_u256);
         // println!("x = {:?} , y = {:?}", x_u256, y_u256 );
         u256_to_f64_decimal(y_u256, DECIMALS)
     },
-    u256_to_f64_decimal(x_min, DECIMALS)..=u256_to_f64_decimal(x_max, DECIMALS),
+    xrange,
     num_points));
     // println!("line_bounds = {:?}", line.bounds());
     line
