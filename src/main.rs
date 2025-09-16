@@ -218,9 +218,18 @@ pub fn f64_to_u256(value: f64, radix: u8, places: u32) -> U256 {
     }
 }
 
-
+/*
+ *  Converts a floating point number to Uniswaps X128 format (Q128.128)
+ */
 pub fn to_X128(x: f64) -> U256 {
     f64_to_u256(x,2,128)
+}
+
+/*
+ *  Converts a floating point number to Uniswaps X128 format (Q64.96)
+ */
+pub fn to_X96(x: f64) -> U256 {
+    f64_to_u256(x,2,96)
 }
 
 // fn mul(x: U256, y: U256) -> U256 {
