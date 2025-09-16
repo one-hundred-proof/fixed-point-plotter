@@ -54,7 +54,7 @@ impl Default for EllipticApp {
 /*
  *   The function to be plotted
  */
-fn plot_fun(x: U256) -> U256 {
+fn loss_of_rewards(x: U256) -> U256 {
     if x < U256::pow(U256::from(2), U256::from(150)) {
         let growth_inside = to_X128(0.5);
         let last_liquidity = U256::from(1);
@@ -73,14 +73,15 @@ fn plot_fun(x: U256) -> U256 {
 
 }
 
-// fn plot_fun(x: U256) -> U256 {
-//     if x > U256::from(0) {
-//         mul(x, div(U256::from(10u128.pow(DECIMALS)), x))
-//     } else {
-//         U256::from(0)
-//     }
-// }
+fn _x_mul_inverse(x: U256) -> U256 {
+    if x > U256::from(0) {
+        mul(x, div(U256::from(10u128.pow(18)), x))
+    } else {
+        U256::from(0)
+    }
+}
 
+const plot_fun: fn(U256) -> U256 = loss_of_rewards;
 
 impl eframe::App for EllipticApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -232,13 +233,13 @@ pub fn to_X96(x: f64) -> U256 {
     f64_to_u256(x,2,96)
 }
 
-// fn mul(x: U256, y: U256) -> U256 {
-//     x.overflowing_mul(y).0 / U256::from(10u128.pow(DECIMALS))
-// }
+fn mul(x: U256, y: U256) -> U256 {
+    x.overflowing_mul(y).0 / U256::from(10u128.pow(18))
+}
 
-// fn div(x: U256, y: U256) -> U256 {
-//     x.overflowing_mul(U256::from(10u128.pow(DECIMALS))).0 / y
-// }
+fn div(x: U256, y: U256) -> U256 {
+    x.overflowing_mul(U256::from(10u128.pow(18))).0 / y
+}
 
 /*
  * Uses 512-bit arithmetic in intermediate calculations to retain precision
