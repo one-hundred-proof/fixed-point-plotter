@@ -4,11 +4,20 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use primitive_types::{U256, U512};
 
-const X_RADIX: u8 = 10;
-const X_PLACES: u32 = 0;
+const NUM_POINTS: usize = 20000;
 
-const Y_RADIX: u8 = 2;
+
+const X_RADIX: u8   = 10;
+const X_PLACES: u32 = 0;
+const X_MIN: f64    = 0.0;
+const X_MAX: f64    = 5e38;
+
+const Y_RADIX: u8   = 2;
 const Y_PLACES: u32 = 128;
+const Y_MIN: f64    = 0.0;
+const Y_MAX: f64    = 0.6;
+
+
 
 pub struct EllipticApp {
     x_min: f64,
@@ -26,7 +35,7 @@ pub struct EllipticApp {
 impl Default for EllipticApp {
     fn default() -> Self {
         /* These bounds must be pre-divided by radix^places */
-        let (x_min, x_max, y_min, y_max) = (0.0, 1e38, 0.0, 1.0);
+        let (x_min, x_max, y_min, y_max) = (X_MIN, X_MAX, Y_MIN, Y_MAX);
         Self {
             x_min,
             x_max,
@@ -41,6 +50,38 @@ impl Default for EllipticApp {
         }
     }
 }
+
+/*
+ *   The function to be plotted
+ */
+fn plot_fun(x: U256) -> U256 {
+    if x < U256::pow(U256::from(2), U256::from(150)) {
+        let growth_inside = to_X128(0.5);
+        let last_liquidity = U256::from(1);
+        let new_liquidity = x * last_liquidity + 1;
+        let last_growth_inside_x128 = U256::from(0);
+
+        let last_growth_adjustment =
+            full_mul_div(growth_inside - last_growth_inside_x128, last_liquidity, new_liquidity);
+        let last_growth_inside_x128_1 = growth_inside - last_growth_adjustment;
+
+
+        return (growth_inside - last_growth_inside_x128) * last_liquidity - (growth_inside - last_growth_inside_x128_1) * new_liquidity;
+    } else {
+        return U256::from(0);
+    }
+
+}
+
+// fn plot_fun(x: U256) -> U256 {
+//     if x > U256::from(0) {
+//         mul(x, div(U256::from(10u128.pow(DECIMALS)), x))
+//     } else {
+//         U256::from(0)
+//     }
+// }
+
+
 impl eframe::App for EllipticApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("input_panel").show(ctx, |ui| {
@@ -83,7 +124,7 @@ impl eframe::App for EllipticApp {
                 ui.label("Y Max:");
                 ui.text_edit_singleline(&mut self.y_max_input);
                 if let Ok(value) = self.y_max_input.parse::<f64>() {
-                    if (self.y_max != value) {
+                    if self.y_max != value {
                         self.reset_view = true;
                         self.y_max = value;
                     }
@@ -122,7 +163,7 @@ impl eframe::App for EllipticApp {
 
         // Central panel for the plot
         egui::CentralPanel::default().show(ctx, |ui| {
-            let points = sample_curve_u256(10000);
+            let points = sample_curve_u256(NUM_POINTS);
             let mut plot = Plot::new("plot")
                 .default_x_bounds(self.x_min, self.x_max)
                 .default_y_bounds(self.y_min, self.y_max)
@@ -177,6 +218,11 @@ pub fn f64_to_u256(value: f64, radix: u8, places: u32) -> U256 {
     }
 }
 
+
+pub fn to_X128(x: f64) -> U256 {
+    f64_to_u256(x,2,128)
+}
+
 // fn mul(x: U256, y: U256) -> U256 {
 //     x.overflowing_mul(y).0 / U256::from(10u128.pow(DECIMALS))
 // }
@@ -196,35 +242,6 @@ fn full_mul_div(x: U256, y: U256, z: U256) -> U256 {
     return U256::from_little_endian( &((x_512 * y_512) / z_512).to_little_endian()[0..32]);
 }
 
-/*
- *
- */
-fn plot_fun(x: U256) -> U256 {
-    if x < U256::pow(U256::from(2), U256::from(130)) {
-        let growth_inside = U256::pow(U256::from(2), U256::from(128));
-        let last_liquidity = U256::from(1);
-        let new_liquidity = x * last_liquidity + 1;
-        let last_growth_inside_x128 = U256::from(0);
-
-        let last_growth_adjustment =
-            full_mul_div(growth_inside - last_growth_inside_x128, last_liquidity, new_liquidity);
-        let last_growth_inside_x128_1 = growth_inside - last_growth_adjustment;
-
-
-        return (growth_inside - last_growth_inside_x128) * last_liquidity - (growth_inside - last_growth_inside_x128_1) * new_liquidity;
-    } else {
-        return U256::from(0);
-    }
-
-}
-
-// fn plot_fun(x: U256) -> U256 {
-//     if x > U256::from(0) {
-//         mul(x, div(U256::from(10u128.pow(DECIMALS)), x))
-//     } else {
-//         U256::from(0)
-//     }
-// }
 
 fn sample_curve_u256(
     num_points: usize,
