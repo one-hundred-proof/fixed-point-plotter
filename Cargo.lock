@@ -1057,6 +1057,7 @@ dependencies = [
 name = "fixed-point-plotter"
 version = "0.1.0"
 dependencies = [
+ "ecolor",
  "eframe",
  "egui_plot",
  "num-bigint",

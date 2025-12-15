@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 eframe = "0.33.3"
+ecolor = "0.33.3"
 egui_plot = "0.34.0"
 num-traits = "0.2.19"
 num-bigint = "0.4.6"

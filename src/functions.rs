@@ -41,19 +41,23 @@ pub fn to_X96(x: f64) -> U256 {
 
 
 pub fn x_mul_inverse(x: U256) -> U256 {
-    if x > U256::from(0) {
+    if x > u256d("500000000000000000000000000000000000") {
+        panic!("error");
+    }
+
+    if x > u256f(0) {
         mul(x, div(U256::from(10u128.pow(18)), x))
     } else {
-        U256::from(0)
+        u256f(0)
     }
 }
 
 fn mul(x: U256, y: U256) -> U256 {
-    x.overflowing_mul(y).0 / U256::from(10u128.pow(18))
+    x * y / U256::from(10u128.pow(18))
 }
 
 fn div(x: U256, y: U256) -> U256 {
-    x.overflowing_mul(U256::from(10u128.pow(18))).0 / y
+    x * U256::from(10u128.pow(18))/ y
 }
 
 /*

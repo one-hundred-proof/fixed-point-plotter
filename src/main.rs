@@ -1,4 +1,4 @@
-use eframe::egui::{self, Slider};
+use eframe::egui::{self, Color32, Slider};
 use egui_plot::{Plot, PlotPoints, Points};
 use primitive_types::{U256};
 use std::panic::{self, AssertUnwindSafe};
@@ -125,11 +125,6 @@ impl eframe::App for EllipticApp {
                     ui.label("X Min:");
                     ui.label(format!("{:.2e}", self.sampling_x_min));
                     ui.text_edit_singleline(&mut self.sampling_x_min_input);
-                    if ui.button("Set").clicked() {
-                        if let Ok(value) = self.sampling_x_min_input.parse::<f64>() {
-                            self.sampling_x_min = value;
-                        }
-                    }
 
                     ui.label("X Max:");
                     ui.label(format!("{:.2e}", self.sampling_x_max));
@@ -162,41 +157,32 @@ impl eframe::App for EllipticApp {
                     ui.label("X Max:");
                     ui.label(format!("{:.2e}", self.display_x_max));
                     ui.text_edit_singleline(&mut self.display_x_max_input);
-                    if ui.button("Set").clicked() {
-                        if let Ok(value) = self.display_x_max_input.parse::<f64>() {
-                            if self.display_x_max != value {
-                                self.display_x_max = value;
-                                self.reset_view = true;
-                            }
-                        }
-                    }
                 });
 
                 ui.horizontal(|ui| {
                     ui.label("Y Min:");
                     ui.label(format!("{:.2e}", self.display_y_min));
                     ui.text_edit_singleline(&mut self.display_y_min_input);
-                    if ui.button("Set").clicked() {
-                        if let Ok(value) = self.display_y_min_input.parse::<f64>() {
-                            if self.display_y_min != value {
-                                self.display_y_min = value;
-                                self.reset_view = true;
-                            }
-                        }
-                    }
 
                     ui.label("Y Max:");
                     ui.label(format!("{:.2e}", self.display_y_max));
                     ui.text_edit_singleline(&mut self.display_y_max_input);
-                    if ui.button("Set").clicked() {
-                        if let Ok(value) = self.display_y_max_input.parse::<f64>() {
-                            if self.display_y_max != value {
-                                self.display_y_max = value;
-                                self.reset_view = true;
-                            }
+                });
+
+                if ui.button("Set").clicked() {
+                        if let (Ok(y_min_val), Ok(y_max_val), Ok(x_min_val), Ok(x_max_val)) =
+                               (self.display_y_min_input.parse::<f64>(),
+                                self.display_y_max_input.parse::<f64>(),
+                                self.display_x_min_input.parse::<f64>(),
+                                self.display_x_max_input.parse::<f64>(),)
+                                {
+                            self.display_y_min = y_min_val;
+                            self.display_y_max = y_max_val;
+                            self.display_x_min = x_min_val;
+                            self.display_x_max = x_max_val;
+                            self.reset_view = true;
                         }
                     }
-                });
 
                 if ui.button("Reset to Sampling Bounds").clicked() {
                     self.display_x_min = self.sampling_x_min;
@@ -215,16 +201,19 @@ impl eframe::App for EllipticApp {
                     .text("points"));
             });
 
-            // Display error message if any
-            if let Some(error_msg) = &self.error_message {
-                ui.horizontal(|ui| {
+            ui.horizontal(|ui| {
+                if let Some(error_msg) = &self.error_message {
                     ui.label(egui::RichText::new("Error:").color(egui::Color32::RED).strong());
                     ui.label(error_msg);
                     if let Some(x) = self.last_error_x {
                         ui.label(format!("at x ≈ {:.6e}", x));
                     }
-                });
-            }
+                }
+
+            });
+
+
+            // Display error message if any
         });
 
         // Bottom panel for current bounds display
@@ -276,17 +265,12 @@ impl eframe::App for EllipticApp {
             };
 
             // Sample the curve with panic handling using the current view bounds for x
-            let (points, error) = sample_curve_u256_safe(self.num_points, sample_x_min, sample_x_max);
+            let (points, errorPoints) = sample_curve_u256_safe(self.num_points, sample_x_min, sample_x_max);
 
-            self.error_message = error.map(|(msg, x)| {
-                self.last_error_x = Some(x);
-                msg
-            });
             // Ensure y_min is always less than y_max
             if self.display_y_min > self.display_y_max {
                 std::mem::swap(&mut self.display_y_min, &mut self.display_y_max);
             }
-
             let mut was_reset = false;
             if self.reset_view {
                 plot = plot.reset();
@@ -296,6 +280,7 @@ impl eframe::App for EllipticApp {
 
             let plot_response = plot.show(ui, |plot_ui| {
                 plot_ui.points(points);
+                plot_ui.points(errorPoints);
                 if was_reset {
                     plot_ui.set_plot_bounds_x(self.display_x_min..=self.display_x_max);
                     plot_ui.set_plot_bounds_y(self.display_y_min..=self.display_y_max);
@@ -316,15 +301,16 @@ impl eframe::App for EllipticApp {
 }
 
 
-/// Safely sample the curve with panic handling
+/// Safely sample the curve with panic handling. An x values for which the function reverts will be pushed into a second set of points called `errorPoints`
+/// These can be plotted in a different colour
 fn sample_curve_u256_safe(
     num_points: usize,
     x_min: f64,
     x_max: f64,
-) -> (Points<'static>, Option<(String, f64)>) {
+) -> (Points<'static>, Points<'static>) {
     // Create a thread-safe counter to track which x value caused a panic
     let current_x_index = Arc::new(AtomicUsize::new(0));
-    let current_x_index_clone = current_x_index.clone();
+//    let current_x_index_clone = current_x_index.clone();
 
     // Create a vector to store x values for each point
     let x_values: Vec<f64> = (0..num_points)
@@ -338,111 +324,52 @@ fn sample_curve_u256_safe(
     let old_hook = panic::take_hook();
     panic::set_hook(Box::new(|_| {})); // Silent hook
 
-    // Try to compute all points
-    let result = panic::catch_unwind(AssertUnwindSafe(|| {
-        let mut points = Vec::with_capacity(num_points);
+    // Separate points that produce a value from those that panic/revert
+    let mut points_vec = Vec::with_capacity(num_points);
 
-        for (i, &x) in x_values.iter().enumerate() {
-            // Update the current index being processed
-            current_x_index.store(i, Ordering::SeqCst);
+    let mut error_points_vec = Vec::with_capacity(num_points);
 
-            if x.is_infinite() {
-                points.push([x, 0.0]);
-                continue;
-            }
+    for (i, &x) in x_values.iter().enumerate() {
+        // Update the current index being processed
+        current_x_index.store(i, Ordering::SeqCst);
 
-            // Convert x_f64 -> U256
-            let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
-            let y_u256 = plot_fun(x_u256);
-            let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
-
-            points.push([x, y]);
+        if x.is_infinite() {
+            points_vec.push([x, 0.0]);
+            continue;
         }
 
-        PlotPoints::new(points)
-    }));
+        // Convert x_f64 -> U256
+        let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
+        let resultY = panic::catch_unwind(AssertUnwindSafe(|| { plot_fun(x_u256) }));
+        match resultY {
+            Ok(y_u256) => {
+                let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
+                points_vec.push([x, y]);
+            }
+            Err(_) => {
+
+                error_points_vec.push([x,0.0]);
+            }
+        }
+    }
 
     // Restore the original panic hook
     panic::set_hook(old_hook);
 
-    match result {
-        Ok(plot_points) => {
-            // No panic occurred
-            (Points::new("y = f(x)", plot_points), None)
-        }
-        Err(e) => {
-            // A panic occurred
-            let error_index = current_x_index_clone.load(Ordering::SeqCst);
-            let error_x = if error_index < x_values.len() {
-                x_values[error_index]
-            } else {
-                0.0 // Fallback
-            };
 
-            // Extract panic message if possible
-            let error_message = if let Some(s) = e.downcast_ref::<String>() {
-                s.clone()
-            } else if let Some(s) = e.downcast_ref::<&'static str>() {
-                s.to_string()
-            } else {
-                "Unknown error".to_string()
-            };
-
-            // Create a partial plot with points up to the error
-            let partial_points = if error_index > 0 {
-                let mut points = Vec::with_capacity(error_index);
-                for i in 0..error_index {
-                    let x = x_values[i];
-                    if x.is_infinite() {
-                        points.push([x, 0.0]);
-                        continue;
-                    }
-
-                    // Safely compute points before the error
-                    let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
-                    let y_u256 = plot_fun(x_u256);
-                    let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
-
-                    points.push([x, y]);
-                }
-                PlotPoints::new(points)
-            } else {
-                PlotPoints::new(vec![[x_min, 0.0], [x_max, 0.0]])
-            };
-
-            (Points::new("y = f(x) (partial)", partial_points), Some((error_message, error_x)))
-        }
-    }
+    let mut points = Points::new("y = f(x)", PlotPoints::new(points_vec));
+    points = points.color(Color32::DARK_BLUE);
+    let mut error_points = Points::new("error points", PlotPoints::new(error_points_vec));
+    error_points = error_points.color(Color32::RED);
+    (points, error_points)
 }
 
-/// Original sampling function (kept for reference)
-fn sample_curve_u256(
-    num_points: usize,
-) -> Points<'static> {
-    let line = Points::new("y = f(x)", PlotPoints::from_explicit_callback(
-        move |x_f64: f64| {
-        if x_f64.is_infinite() {
-            return 0.0;
-        }
-        // Convert x_f64 -> U256
-        let x_u256 = f64_to_u256(x_f64, X_RADIX, X_PLACES);
-        let y_u256 = plot_fun(x_u256);
-        let r = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
-        r
-    },
-    .., // infinite
-    num_points));
-    line
-}
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions::default();
     eframe::run_native(
-        "Plot: U256 fixed-point",
+        "Fixed point plotter",
         options,
         Box::new(|_cc| Ok(Box::new(EllipticApp::default()))),
     )
 }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
