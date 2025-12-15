@@ -8,7 +8,7 @@ use std::sync::Arc;
 mod maths;
 mod functions;
 
-use crate::functions::{yearn_calc_supply};
+use crate::functions::*;
 use crate::maths::*;
 
 // Default number of points, will be configurable via UI
@@ -26,7 +26,7 @@ const Y_PLACES: u32 = 18;
 const Y_MIN: f64    = 0.0;
 const Y_MAX: f64    = 1.0;
 
-const plot_fun: fn(U256) -> U256 = yearn_calc_supply;
+const plot_fun: fn(U256) -> U256 = x_mul_inverse;
 
 pub struct EllipticApp {
     x_min: f64,
@@ -78,15 +78,15 @@ impl eframe::App for EllipticApp {
         let now = std::time::Instant::now();
         let frame_time = now.duration_since(self.last_frame_time).as_secs_f64();
         self.last_frame_time = now;
-        
+
         self.frame_times.push(frame_time);
         if self.frame_times.len() > 100 {
             self.frame_times.remove(0);
         }
-        
+
         let avg_frame_time: f64 = self.frame_times.iter().sum::<f64>() / self.frame_times.len() as f64;
         self.fps = (1.0 / avg_frame_time) as f32;
-        
+
         // Request continuous repainting to update FPS
         ctx.request_repaint();
         egui::TopBottomPanel::top("input_panel").show(ctx, |ui| {
@@ -141,7 +141,7 @@ impl eframe::App for EllipticApp {
                     ui.label(format!("({:.2e})", self.y_max));
                 }
             });
-            
+
             // Add slider for number of points
             ui.horizontal(|ui| {
                 ui.label("Number of points:");
@@ -149,7 +149,7 @@ impl eframe::App for EllipticApp {
                     .logarithmic(true)
                     .text("points"));
             });
-            
+
             // Display error message if any
             if let Some(error_msg) = &self.error_message {
                 ui.horizontal(|ui| {
@@ -234,7 +234,7 @@ fn sample_curve_u256_safe(
     // Create a thread-safe counter to track which x value caused a panic
     let current_x_index = Arc::new(AtomicUsize::new(0));
     let current_x_index_clone = current_x_index.clone();
-    
+
     // Create a vector to store x values for each point
     let x_values: Vec<f64> = (0..num_points)
         .map(|i| {
@@ -242,38 +242,38 @@ fn sample_curve_u256_safe(
             x_min + t * (x_max - x_min)
         })
         .collect();
-    
+
     // Set up panic hook
     let old_hook = panic::take_hook();
     panic::set_hook(Box::new(|_| {})); // Silent hook
-    
+
     // Try to compute all points
     let result = panic::catch_unwind(AssertUnwindSafe(|| {
         let mut points = Vec::with_capacity(num_points);
-        
+
         for (i, &x) in x_values.iter().enumerate() {
             // Update the current index being processed
             current_x_index.store(i, Ordering::SeqCst);
-            
+
             if x.is_infinite() {
                 points.push([x, 0.0]);
                 continue;
             }
-            
+
             // Convert x_f64 -> U256
             let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
             let y_u256 = plot_fun(x_u256);
             let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
-            
+
             points.push([x, y]);
         }
-        
+
         PlotPoints::new(points)
     }));
-    
+
     // Restore the original panic hook
     panic::set_hook(old_hook);
-    
+
     match result {
         Ok(plot_points) => {
             // No panic occurred
@@ -287,7 +287,7 @@ fn sample_curve_u256_safe(
             } else {
                 0.0 // Fallback
             };
-            
+
             // Extract panic message if possible
             let error_message = if let Some(s) = e.downcast_ref::<String>() {
                 s.clone()
@@ -296,7 +296,7 @@ fn sample_curve_u256_safe(
             } else {
                 "Unknown error".to_string()
             };
-            
+
             // Create a partial plot with points up to the error
             let partial_points = if error_index > 0 {
                 let mut points = Vec::with_capacity(error_index);
@@ -306,19 +306,19 @@ fn sample_curve_u256_safe(
                         points.push([x, 0.0]);
                         continue;
                     }
-                    
+
                     // Safely compute points before the error
                     let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
                     let y_u256 = plot_fun(x_u256);
                     let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
-                    
+
                     points.push([x, y]);
                 }
                 PlotPoints::new(points)
             } else {
                 PlotPoints::new(vec![[x_min, 0.0], [x_max, 0.0]])
             };
-            
+
             (Points::new("y = f(x) (partial)", partial_points), Some((error_message, error_x)))
         }
     }
