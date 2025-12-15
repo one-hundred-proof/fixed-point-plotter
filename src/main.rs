@@ -303,7 +303,7 @@ impl eframe::App for EllipticApp {
             );
             self.current_bounds = Some(bounds);
 
-            // Update the display bounds input fields to match the current view
+            // Only update the actual display bounds, not the input fields
             if !self.reset_view {
                 // For x-axis, min should be less than max
                 let x_min = bounds.min()[0];
@@ -316,12 +316,7 @@ impl eframe::App for EllipticApp {
                     (bounds.max()[1], bounds.min()[1])
                 };
                 
-                self.display_x_min_input = format!("{}", x_min);
-                self.display_x_max_input = format!("{}", x_max);
-                self.display_y_min_input = format!("{}", y_min);
-                self.display_y_max_input = format!("{}", y_max);
-                
-                // Also update the actual display bounds
+                // Update the actual display bounds but NOT the input fields
                 self.display_x_min = x_min;
                 self.display_x_max = x_max;
                 self.display_y_min = y_min;
