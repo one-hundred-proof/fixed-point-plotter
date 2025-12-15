@@ -32,13 +32,13 @@ pub struct EllipticApp {
     // Sampling bounds (limits on what values can be sampled)
     sampling_x_min: f64,
     sampling_x_max: f64,
-    
+
     // Display bounds (what we're looking at)
     display_x_min: f64,
     display_x_max: f64,
     display_y_min: f64,
     display_y_max: f64,
-    
+
     // Input fields
     sampling_x_min_input: String,
     sampling_x_max_input: String,
@@ -46,7 +46,7 @@ pub struct EllipticApp {
     display_x_max_input: String,
     display_y_min_input: String,
     display_y_max_input: String,
-    
+
     current_bounds: Option<egui_plot::PlotBounds>,
     reset_view: bool,
     num_points: usize,
@@ -65,13 +65,13 @@ impl Default for EllipticApp {
             // Initialize sampling bounds
             sampling_x_min: x_min,
             sampling_x_max: x_max,
-            
+
             // Initialize display bounds
             display_x_min: x_min,
             display_x_max: x_max,
             display_y_min: y_min,
             display_y_max: y_max,
-            
+
             // Initialize input fields
             sampling_x_min_input: x_min.to_string(),
             sampling_x_max_input: x_max.to_string(),
@@ -79,7 +79,7 @@ impl Default for EllipticApp {
             display_x_max_input: x_max.to_string(),
             display_y_min_input: y_min.to_string(),
             display_y_max_input: y_max.to_string(),
-            
+
             current_bounds: None,
             reset_view: false,
             num_points: DEFAULT_NUM_POINTS,
@@ -120,7 +120,7 @@ impl eframe::App for EllipticApp {
             // Add controls for adjusting sampling bounds
             ui.collapsing("Sampling Bounds", |ui| {
                 ui.label("These bounds limit the range of x values that can be sampled.");
-                
+
                 ui.horizontal(|ui| {
                     ui.label("X Min:");
                     ui.label(format!("{:.2e}", self.sampling_x_min));
@@ -141,11 +141,11 @@ impl eframe::App for EllipticApp {
                     }
                 });
             });
-            
+
             // Add controls for adjusting display bounds
             ui.collapsing("Display Bounds", |ui| {
                 ui.label("These bounds control what part of the function is displayed.");
-                
+
                 ui.horizontal(|ui| {
                     ui.label("X Min:");
                     ui.label(format!("{:.2e}", self.display_x_min));
@@ -197,7 +197,7 @@ impl eframe::App for EllipticApp {
                         }
                     }
                 });
-                
+
                 if ui.button("Reset to Sampling Bounds").clicked() {
                     self.display_x_min = self.sampling_x_min;
                     self.display_x_max = self.sampling_x_max;
@@ -262,19 +262,20 @@ impl eframe::App for EllipticApp {
             } else {
                 self.display_x_min.max(self.sampling_x_min).min(self.sampling_x_max)
             };
-            
+
             let sample_x_max = if let Some(bounds) = self.current_bounds {
                 bounds.max()[0].max(self.sampling_x_min).min(self.sampling_x_max)
             } else {
                 self.display_x_max.max(self.sampling_x_min).min(self.sampling_x_max)
             };
-            
+
             // Sample the curve with panic handling using the current view bounds for x
             let (points, error) = sample_curve_u256_safe(self.num_points, sample_x_min, sample_x_max);
             self.error_message = error.map(|(msg, x)| {
                 self.last_error_x = Some(x);
                 msg
             });
+            println!("display_y_min/max {:?}/{:?}", self.display_y_min, self.display_y_max);
             let mut plot = Plot::new("plot")
                 .default_x_bounds(self.display_x_min, self.display_x_max)
                 .default_y_bounds(self.display_y_min, self.display_y_max)
@@ -298,14 +299,14 @@ impl eframe::App for EllipticApp {
                 [max_pos.x, max_pos.y]
             );
             self.current_bounds = Some(bounds);
-            
+
             // Update the display bounds input fields to match the current view
             if !self.reset_view {
                 self.display_x_min_input = format!("{}", bounds.min()[0]);
                 self.display_x_max_input = format!("{}", bounds.max()[0]);
                 self.display_y_min_input = format!("{}", bounds.min()[1]);
                 self.display_y_max_input = format!("{}", bounds.max()[1]);
-                
+
                 // Also update the actual display bounds
                 self.display_x_min = bounds.min()[0];
                 self.display_x_max = bounds.max()[0];
