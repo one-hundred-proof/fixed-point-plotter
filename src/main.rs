@@ -100,45 +100,53 @@ impl eframe::App for EllipticApp {
             // Add controls for adjusting bounds
             ui.horizontal(|ui| {
                 ui.label("X Min:");
+                ui.label(format!("{:.2e}", self.x_min));
                 ui.text_edit_singleline(&mut self.x_min_input);
-                if let Ok(value) = self.x_min_input.parse::<f64>() {
-                    if self.x_min != value {
-                        self.reset_view = true;
-                        self.x_min = value;
+                if ui.button("Set").clicked() {
+                    if let Ok(value) = self.x_min_input.parse::<f64>() {
+                        if self.x_min != value {
+                            self.reset_view = true;
+                            self.x_min = value;
+                        }
                     }
-                    ui.label(format!("({:.2e})", self.x_min));
                 }
 
                 ui.label("X Max:");
+                ui.label(format!("{:.2e}", self.x_max));
                 ui.text_edit_singleline(&mut self.x_max_input);
-                if let Ok(value) = self.x_max_input.parse::<f64>() {
-                    if self.x_max != value {
-                        self.reset_view = true;
-                        self.x_max = value;
+                if ui.button("Set").clicked() {
+                    if let Ok(value) = self.x_max_input.parse::<f64>() {
+                        if self.x_max != value {
+                            self.reset_view = true;
+                            self.x_max = value;
+                        }
                     }
-                    ui.label(format!("({:.2e})", self.x_max));
                 }
             });
 
             ui.horizontal(|ui| {
                 ui.label("Y Min:");
+                ui.label(format!("{:.2e}", self.y_min));
                 ui.text_edit_singleline(&mut self.y_min_input);
-                if let Ok(value) = self.y_min_input.parse::<f64>() {
-                    if self.y_min != value {
-                        self.reset_view = true;
-                        self.y_min = value;
+                if ui.button("Set").clicked() {
+                    if let Ok(value) = self.y_min_input.parse::<f64>() {
+                        if self.y_min != value {
+                            self.reset_view = true;
+                            self.y_min = value;
+                        }
                     }
-                    ui.label(format!("({:.2e})", self.y_min));
                 }
 
                 ui.label("Y Max:");
+                ui.label(format!("{:.2e}", self.y_max));
                 ui.text_edit_singleline(&mut self.y_max_input);
-                if let Ok(value) = self.y_max_input.parse::<f64>() {
-                    if self.y_max != value {
-                        self.reset_view = true;
-                        self.y_max = value;
+                if ui.button("Set").clicked() {
+                    if let Ok(value) = self.y_max_input.parse::<f64>() {
+                        if self.y_max != value {
+                            self.reset_view = true;
+                            self.y_max = value;
+                        }
                     }
-                    ui.label(format!("({:.2e})", self.y_max));
                 }
             });
 
