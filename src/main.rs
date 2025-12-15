@@ -153,8 +153,8 @@ impl eframe::App for EllipticApp {
                     if ui.button("Set").clicked() {
                         if let Ok(value) = self.display_x_min_input.parse::<f64>() {
                             if self.display_x_min != value {
-                                self.reset_view = true;
                                 self.display_x_min = value;
+                                self.reset_view = true;
                             }
                         }
                     }
@@ -165,8 +165,8 @@ impl eframe::App for EllipticApp {
                     if ui.button("Set").clicked() {
                         if let Ok(value) = self.display_x_max_input.parse::<f64>() {
                             if self.display_x_max != value {
-                                self.reset_view = true;
                                 self.display_x_max = value;
+                                self.reset_view = true;
                             }
                         }
                     }
@@ -179,8 +179,8 @@ impl eframe::App for EllipticApp {
                     if ui.button("Set").clicked() {
                         if let Ok(value) = self.display_y_min_input.parse::<f64>() {
                             if self.display_y_min != value {
-                                self.reset_view = true;
                                 self.display_y_min = value;
+                                self.reset_view = true;
                             }
                         }
                     }
@@ -191,8 +191,8 @@ impl eframe::App for EllipticApp {
                     if ui.button("Set").clicked() {
                         if let Ok(value) = self.display_y_max_input.parse::<f64>() {
                             if self.display_y_max != value {
-                                self.reset_view = true;
                                 self.display_y_max = value;
+                                self.reset_view = true;
                             }
                         }
                     }
@@ -256,6 +256,12 @@ impl eframe::App for EllipticApp {
 
         // Central panel for the plot
         egui::CentralPanel::default().show(ctx, |ui| {
+
+            let mut plot = Plot::new("plot")
+                .default_x_bounds(self.display_x_min, self.display_x_max)
+                .default_y_bounds(self.display_y_min, self.display_y_max)
+                .auto_bounds(true);
+
             // Get the current x bounds from the plot if available, otherwise use display bounds
             let sample_x_min = if let Some(bounds) = self.current_bounds {
                 bounds.min()[0].max(self.sampling_x_min).min(self.sampling_x_max)
@@ -271,6 +277,7 @@ impl eframe::App for EllipticApp {
 
             // Sample the curve with panic handling using the current view bounds for x
             let (points, error) = sample_curve_u256_safe(self.num_points, sample_x_min, sample_x_max);
+
             self.error_message = error.map(|(msg, x)| {
                 self.last_error_x = Some(x);
                 msg
@@ -279,18 +286,20 @@ impl eframe::App for EllipticApp {
             if self.display_y_min > self.display_y_max {
                 std::mem::swap(&mut self.display_y_min, &mut self.display_y_max);
             }
-            let mut plot = Plot::new("plot")
-                .default_x_bounds(self.display_x_min, self.display_x_max)
-                .default_y_bounds(self.display_y_min, self.display_y_max)
-                .auto_bounds(true);
 
+            let mut was_reset = false;
             if self.reset_view {
                 plot = plot.reset();
                 self.reset_view = false;
+                was_reset = true;
             }
 
             let plot_response = plot.show(ui, |plot_ui| {
                 plot_ui.points(points);
+                if was_reset {
+                    plot_ui.set_plot_bounds_x(self.display_x_min..=self.display_x_max);
+                    plot_ui.set_plot_bounds_y(self.display_y_min..=self.display_y_max);
+                }
             });
 
             // Get the current bounds directly from the plot transform
@@ -302,26 +311,6 @@ impl eframe::App for EllipticApp {
                 [max_pos.x, max_pos.y]
             );
             self.current_bounds = Some(bounds);
-
-            // Only update the actual display bounds, not the input fields
-            if !self.reset_view {
-                // For x-axis, min should be less than max
-                let x_min = bounds.min()[0];
-                let x_max = bounds.max()[0];
-
-                // For y-axis, ensure min is less than max
-                let (y_min, y_max) = if bounds.min()[1] <= bounds.max()[1] {
-                    (bounds.min()[1], bounds.max()[1])
-                } else {
-                    (bounds.max()[1], bounds.min()[1])
-                };
-
-                // Update the actual display bounds but NOT the input fields
-                self.display_x_min = x_min;
-                self.display_x_max = x_max;
-                self.display_y_min = y_min;
-                self.display_y_max = y_max;
-            }
         });
     }
 }
@@ -439,12 +428,10 @@ fn sample_curve_u256(
         let x_u256 = f64_to_u256(x_f64, X_RADIX, X_PLACES);
         let y_u256 = plot_fun(x_u256);
         let r = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
-//        println!("x_f64 {:?} x {:?} y {:?} r {:?}", x_f64, x_u256, y_u256, r);
         r
     },
     .., // infinite
     num_points));
-    // println!("line_bounds = {:?}", line.bounds());
     line
 }
 fn main() -> Result<(), eframe::Error> {
