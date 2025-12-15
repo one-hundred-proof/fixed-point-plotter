@@ -29,14 +29,24 @@ const Y_MAX: f64    = 1.0;
 const plot_fun: fn(U256) -> U256 = x_mul_inverse;
 
 pub struct EllipticApp {
-    x_min: f64,
-    x_max: f64,
-    y_min: f64,
-    y_max: f64,
-    x_min_input: String,
-    x_max_input: String,
-    y_min_input: String,
-    y_max_input: String,
+    // Sampling bounds (limits on what values can be sampled)
+    sampling_x_min: f64,
+    sampling_x_max: f64,
+    
+    // Display bounds (what we're looking at)
+    display_x_min: f64,
+    display_x_max: f64,
+    display_y_min: f64,
+    display_y_max: f64,
+    
+    // Input fields
+    sampling_x_min_input: String,
+    sampling_x_max_input: String,
+    display_x_min_input: String,
+    display_x_max_input: String,
+    display_y_min_input: String,
+    display_y_max_input: String,
+    
     current_bounds: Option<egui_plot::PlotBounds>,
     reset_view: bool,
     num_points: usize,
@@ -52,14 +62,24 @@ impl Default for EllipticApp {
         /* These bounds must be pre-divided by radix^places */
         let (x_min, x_max, y_min, y_max) = (X_MIN, X_MAX, Y_MIN, Y_MAX);
         Self {
-            x_min,
-            x_max,
-            y_min,
-            y_max,
-            x_min_input: x_min.to_string(),
-            x_max_input: x_max.to_string(),
-            y_min_input: y_min.to_string(),
-            y_max_input: y_max.to_string(),
+            // Initialize sampling bounds
+            sampling_x_min: x_min,
+            sampling_x_max: x_max,
+            
+            // Initialize display bounds
+            display_x_min: x_min,
+            display_x_max: x_max,
+            display_y_min: y_min,
+            display_y_max: y_max,
+            
+            // Initialize input fields
+            sampling_x_min_input: x_min.to_string(),
+            sampling_x_max_input: x_max.to_string(),
+            display_x_min_input: x_min.to_string(),
+            display_x_max_input: x_max.to_string(),
+            display_y_min_input: y_min.to_string(),
+            display_y_max_input: y_max.to_string(),
+            
             current_bounds: None,
             reset_view: false,
             num_points: DEFAULT_NUM_POINTS,
@@ -97,56 +117,93 @@ impl eframe::App for EllipticApp {
                 });
             });
 
-            // Add controls for adjusting bounds
-            ui.horizontal(|ui| {
-                ui.label("X Min:");
-                ui.label(format!("{:.2e}", self.x_min));
-                ui.text_edit_singleline(&mut self.x_min_input);
-                if ui.button("Set").clicked() {
-                    if let Ok(value) = self.x_min_input.parse::<f64>() {
-                        if self.x_min != value {
-                            self.reset_view = true;
-                            self.x_min = value;
+            // Add controls for adjusting sampling bounds
+            ui.collapsing("Sampling Bounds", |ui| {
+                ui.label("These bounds limit the range of x values that can be sampled.");
+                
+                ui.horizontal(|ui| {
+                    ui.label("X Min:");
+                    ui.label(format!("{:.2e}", self.sampling_x_min));
+                    ui.text_edit_singleline(&mut self.sampling_x_min_input);
+                    if ui.button("Set").clicked() {
+                        if let Ok(value) = self.sampling_x_min_input.parse::<f64>() {
+                            self.sampling_x_min = value;
                         }
                     }
-                }
 
-                ui.label("X Max:");
-                ui.label(format!("{:.2e}", self.x_max));
-                ui.text_edit_singleline(&mut self.x_max_input);
-                if ui.button("Set").clicked() {
-                    if let Ok(value) = self.x_max_input.parse::<f64>() {
-                        if self.x_max != value {
-                            self.reset_view = true;
-                            self.x_max = value;
+                    ui.label("X Max:");
+                    ui.label(format!("{:.2e}", self.sampling_x_max));
+                    ui.text_edit_singleline(&mut self.sampling_x_max_input);
+                    if ui.button("Set").clicked() {
+                        if let Ok(value) = self.sampling_x_max_input.parse::<f64>() {
+                            self.sampling_x_max = value;
                         }
                     }
-                }
+                });
             });
-
-            ui.horizontal(|ui| {
-                ui.label("Y Min:");
-                ui.label(format!("{:.2e}", self.y_min));
-                ui.text_edit_singleline(&mut self.y_min_input);
-                if ui.button("Set").clicked() {
-                    if let Ok(value) = self.y_min_input.parse::<f64>() {
-                        if self.y_min != value {
-                            self.reset_view = true;
-                            self.y_min = value;
+            
+            // Add controls for adjusting display bounds
+            ui.collapsing("Display Bounds", |ui| {
+                ui.label("These bounds control what part of the function is displayed.");
+                
+                ui.horizontal(|ui| {
+                    ui.label("X Min:");
+                    ui.label(format!("{:.2e}", self.display_x_min));
+                    ui.text_edit_singleline(&mut self.display_x_min_input);
+                    if ui.button("Set").clicked() {
+                        if let Ok(value) = self.display_x_min_input.parse::<f64>() {
+                            if self.display_x_min != value {
+                                self.reset_view = true;
+                                self.display_x_min = value;
+                            }
                         }
                     }
-                }
 
-                ui.label("Y Max:");
-                ui.label(format!("{:.2e}", self.y_max));
-                ui.text_edit_singleline(&mut self.y_max_input);
-                if ui.button("Set").clicked() {
-                    if let Ok(value) = self.y_max_input.parse::<f64>() {
-                        if self.y_max != value {
-                            self.reset_view = true;
-                            self.y_max = value;
+                    ui.label("X Max:");
+                    ui.label(format!("{:.2e}", self.display_x_max));
+                    ui.text_edit_singleline(&mut self.display_x_max_input);
+                    if ui.button("Set").clicked() {
+                        if let Ok(value) = self.display_x_max_input.parse::<f64>() {
+                            if self.display_x_max != value {
+                                self.reset_view = true;
+                                self.display_x_max = value;
+                            }
                         }
                     }
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("Y Min:");
+                    ui.label(format!("{:.2e}", self.display_y_min));
+                    ui.text_edit_singleline(&mut self.display_y_min_input);
+                    if ui.button("Set").clicked() {
+                        if let Ok(value) = self.display_y_min_input.parse::<f64>() {
+                            if self.display_y_min != value {
+                                self.reset_view = true;
+                                self.display_y_min = value;
+                            }
+                        }
+                    }
+
+                    ui.label("Y Max:");
+                    ui.label(format!("{:.2e}", self.display_y_max));
+                    ui.text_edit_singleline(&mut self.display_y_max_input);
+                    if ui.button("Set").clicked() {
+                        if let Ok(value) = self.display_y_max_input.parse::<f64>() {
+                            if self.display_y_max != value {
+                                self.reset_view = true;
+                                self.display_y_max = value;
+                            }
+                        }
+                    }
+                });
+                
+                if ui.button("Reset to Sampling Bounds").clicked() {
+                    self.display_x_min = self.sampling_x_min;
+                    self.display_x_max = self.sampling_x_max;
+                    self.display_x_min_input = self.display_x_min.to_string();
+                    self.display_x_max_input = self.display_x_max.to_string();
+                    self.reset_view = true;
                 }
             });
 
@@ -199,15 +256,28 @@ impl eframe::App for EllipticApp {
 
         // Central panel for the plot
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Sample the curve with panic handling
-            let (points, error) = sample_curve_u256_safe(self.num_points, self.x_min, self.x_max);
+            // Get the current x bounds from the plot if available, otherwise use display bounds
+            let sample_x_min = if let Some(bounds) = self.current_bounds {
+                bounds.min()[0].max(self.sampling_x_min).min(self.sampling_x_max)
+            } else {
+                self.display_x_min.max(self.sampling_x_min).min(self.sampling_x_max)
+            };
+            
+            let sample_x_max = if let Some(bounds) = self.current_bounds {
+                bounds.max()[0].max(self.sampling_x_min).min(self.sampling_x_max)
+            } else {
+                self.display_x_max.max(self.sampling_x_min).min(self.sampling_x_max)
+            };
+            
+            // Sample the curve with panic handling using the current view bounds for x
+            let (points, error) = sample_curve_u256_safe(self.num_points, sample_x_min, sample_x_max);
             self.error_message = error.map(|(msg, x)| {
                 self.last_error_x = Some(x);
                 msg
             });
             let mut plot = Plot::new("plot")
-                .default_x_bounds(self.x_min, self.x_max)
-                .default_y_bounds(self.y_min, self.y_max)
+                .default_x_bounds(self.display_x_min, self.display_x_max)
+                .default_y_bounds(self.display_y_min, self.display_y_max)
                 .auto_bounds(true);
 
             if self.reset_view {
@@ -228,6 +298,20 @@ impl eframe::App for EllipticApp {
                 [max_pos.x, max_pos.y]
             );
             self.current_bounds = Some(bounds);
+            
+            // Update the display bounds input fields to match the current view
+            if !self.reset_view {
+                self.display_x_min_input = format!("{}", bounds.min()[0]);
+                self.display_x_max_input = format!("{}", bounds.max()[0]);
+                self.display_y_min_input = format!("{}", bounds.min()[1]);
+                self.display_y_max_input = format!("{}", bounds.max()[1]);
+                
+                // Also update the actual display bounds
+                self.display_x_min = bounds.min()[0];
+                self.display_x_max = bounds.max()[0];
+                self.display_y_min = bounds.min()[1];
+                self.display_y_max = bounds.max()[1];
+            }
         });
     }
 }
