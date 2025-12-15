@@ -1,11 +1,11 @@
 [package]
-name = "elliptic_plot"
+name = "fixed-point-plotter"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-eframe = "0.32.0"
-egui_plot = "0.33.0"
+eframe = "0.33.3"
+egui_plot = "0.34.0"
 num-traits = "0.2.19"
 num-bigint = "0.4.6"
 primitive-types = "0.13.1"
