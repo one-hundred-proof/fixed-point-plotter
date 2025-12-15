@@ -19,7 +19,7 @@ const MAX_NUM_POINTS: usize = 10000;
 const X_RADIX: u8   = 10;
 const X_PLACES: u32 = 18;
 const X_MIN: f64    = 0.0;
-const X_MAX: f64    = 1.0;
+const X_MAX: f64    = 1e18;
 
 const Y_RADIX: u8   = 10;
 const Y_PLACES: u32 = 18;
@@ -308,14 +308,14 @@ impl eframe::App for EllipticApp {
                 // For x-axis, min should be less than max
                 let x_min = bounds.min()[0];
                 let x_max = bounds.max()[0];
-                
+
                 // For y-axis, ensure min is less than max
                 let (y_min, y_max) = if bounds.min()[1] <= bounds.max()[1] {
                     (bounds.min()[1], bounds.max()[1])
                 } else {
                     (bounds.max()[1], bounds.min()[1])
                 };
-                
+
                 // Update the actual display bounds but NOT the input fields
                 self.display_x_min = x_min;
                 self.display_x_max = x_max;
