@@ -1,6 +1,9 @@
-use eframe::egui::{self};
+use eframe::egui::{self, Slider};
 use egui_plot::{Plot, PlotPoints, Points};
 use primitive_types::{U256};
+use std::panic::{self, AssertUnwindSafe};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 mod maths;
 mod functions;
@@ -8,7 +11,10 @@ mod functions;
 use crate::functions::{yearn_calc_supply};
 use crate::maths::*;
 
-const NUM_POINTS: usize = 5000;
+// Default number of points, will be configurable via UI
+const DEFAULT_NUM_POINTS: usize = 5000;
+const MIN_NUM_POINTS: usize = 100;
+const MAX_NUM_POINTS: usize = 10000;
 
 const X_RADIX: u8   = 10;
 const X_PLACES: u32 = 18;
@@ -33,6 +39,12 @@ pub struct EllipticApp {
     y_max_input: String,
     current_bounds: Option<egui_plot::PlotBounds>,
     reset_view: bool,
+    num_points: usize,
+    error_message: Option<String>,
+    last_error_x: Option<f64>,
+    fps: f32,
+    frame_times: Vec<f64>,
+    last_frame_time: std::time::Instant,
 }
 
 impl Default for EllipticApp {
@@ -50,14 +62,40 @@ impl Default for EllipticApp {
             y_max_input: y_max.to_string(),
             current_bounds: None,
             reset_view: false,
+            num_points: DEFAULT_NUM_POINTS,
+            error_message: None,
+            last_error_x: None,
+            fps: 0.0,
+            frame_times: Vec::with_capacity(100),
+            last_frame_time: std::time::Instant::now(),
         }
     }
 }
 
 impl eframe::App for EllipticApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Calculate FPS
+        let now = std::time::Instant::now();
+        let frame_time = now.duration_since(self.last_frame_time).as_secs_f64();
+        self.last_frame_time = now;
+        
+        self.frame_times.push(frame_time);
+        if self.frame_times.len() > 100 {
+            self.frame_times.remove(0);
+        }
+        
+        let avg_frame_time: f64 = self.frame_times.iter().sum::<f64>() / self.frame_times.len() as f64;
+        self.fps = (1.0 / avg_frame_time) as f32;
+        
+        // Request continuous repainting to update FPS
+        ctx.request_repaint();
         egui::TopBottomPanel::top("input_panel").show(ctx, |ui| {
-            ui.heading("Plot (U256 scaled)");
+            ui.horizontal(|ui| {
+                ui.heading("Plot (U256 scaled)");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                    ui.label(format!("FPS: {:.1}", self.fps));
+                });
+            });
 
             // Add controls for adjusting bounds
             ui.horizontal(|ui| {
@@ -103,7 +141,25 @@ impl eframe::App for EllipticApp {
                     ui.label(format!("({:.2e})", self.y_max));
                 }
             });
-
+            
+            // Add slider for number of points
+            ui.horizontal(|ui| {
+                ui.label("Number of points:");
+                ui.add(Slider::new(&mut self.num_points, MIN_NUM_POINTS..=MAX_NUM_POINTS)
+                    .logarithmic(true)
+                    .text("points"));
+            });
+            
+            // Display error message if any
+            if let Some(error_msg) = &self.error_message {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Error:").color(egui::Color32::RED).strong());
+                    ui.label(error_msg);
+                    if let Some(x) = self.last_error_x {
+                        ui.label(format!("at x ≈ {:.6e}", x));
+                    }
+                });
+            }
         });
 
         // Bottom panel for current bounds display
@@ -135,7 +191,12 @@ impl eframe::App for EllipticApp {
 
         // Central panel for the plot
         egui::CentralPanel::default().show(ctx, |ui| {
-            let points = sample_curve_u256(NUM_POINTS);
+            // Sample the curve with panic handling
+            let (points, error) = sample_curve_u256_safe(self.num_points, self.x_min, self.x_max);
+            self.error_message = error.map(|(msg, x)| {
+                self.last_error_x = Some(x);
+                msg
+            });
             let mut plot = Plot::new("plot")
                 .default_x_bounds(self.x_min, self.x_max)
                 .default_y_bounds(self.y_min, self.y_max)
@@ -164,11 +225,109 @@ impl eframe::App for EllipticApp {
 }
 
 
+/// Safely sample the curve with panic handling
+fn sample_curve_u256_safe(
+    num_points: usize,
+    x_min: f64,
+    x_max: f64,
+) -> (Points<'static>, Option<(String, f64)>) {
+    // Create a thread-safe counter to track which x value caused a panic
+    let current_x_index = Arc::new(AtomicUsize::new(0));
+    let current_x_index_clone = current_x_index.clone();
+    
+    // Create a vector to store x values for each point
+    let x_values: Vec<f64> = (0..num_points)
+        .map(|i| {
+            let t = i as f64 / (num_points - 1) as f64;
+            x_min + t * (x_max - x_min)
+        })
+        .collect();
+    
+    // Set up panic hook
+    let old_hook = panic::take_hook();
+    panic::set_hook(Box::new(|_| {})); // Silent hook
+    
+    // Try to compute all points
+    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+        let mut points = Vec::with_capacity(num_points);
+        
+        for (i, &x) in x_values.iter().enumerate() {
+            // Update the current index being processed
+            current_x_index.store(i, Ordering::SeqCst);
+            
+            if x.is_infinite() {
+                points.push([x, 0.0]);
+                continue;
+            }
+            
+            // Convert x_f64 -> U256
+            let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
+            let y_u256 = plot_fun(x_u256);
+            let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
+            
+            points.push([x, y]);
+        }
+        
+        PlotPoints::new(points)
+    }));
+    
+    // Restore the original panic hook
+    panic::set_hook(old_hook);
+    
+    match result {
+        Ok(plot_points) => {
+            // No panic occurred
+            (Points::new("y = f(x)", plot_points), None)
+        }
+        Err(e) => {
+            // A panic occurred
+            let error_index = current_x_index_clone.load(Ordering::SeqCst);
+            let error_x = if error_index < x_values.len() {
+                x_values[error_index]
+            } else {
+                0.0 // Fallback
+            };
+            
+            // Extract panic message if possible
+            let error_message = if let Some(s) = e.downcast_ref::<String>() {
+                s.clone()
+            } else if let Some(s) = e.downcast_ref::<&'static str>() {
+                s.to_string()
+            } else {
+                "Unknown error".to_string()
+            };
+            
+            // Create a partial plot with points up to the error
+            let partial_points = if error_index > 0 {
+                let mut points = Vec::with_capacity(error_index);
+                for i in 0..error_index {
+                    let x = x_values[i];
+                    if x.is_infinite() {
+                        points.push([x, 0.0]);
+                        continue;
+                    }
+                    
+                    // Safely compute points before the error
+                    let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
+                    let y_u256 = plot_fun(x_u256);
+                    let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
+                    
+                    points.push([x, y]);
+                }
+                PlotPoints::new(points)
+            } else {
+                PlotPoints::new(vec![[x_min, 0.0], [x_max, 0.0]])
+            };
+            
+            (Points::new("y = f(x) (partial)", partial_points), Some((error_message, error_x)))
+        }
+    }
+}
+
+/// Original sampling function (kept for reference)
 fn sample_curve_u256(
     num_points: usize,
 ) -> Points<'static> {
-
-
     let line = Points::new("y = f(x)", PlotPoints::from_explicit_callback(
         move |x_f64: f64| {
         if x_f64.is_infinite() {
