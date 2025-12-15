@@ -275,7 +275,10 @@ impl eframe::App for EllipticApp {
                 self.last_error_x = Some(x);
                 msg
             });
-            println!("display_y_min/max {:?}/{:?}", self.display_y_min, self.display_y_max);
+            // Ensure y_min is always less than y_max
+            if self.display_y_min > self.display_y_max {
+                std::mem::swap(&mut self.display_y_min, &mut self.display_y_max);
+            }
             let mut plot = Plot::new("plot")
                 .default_x_bounds(self.display_x_min, self.display_x_max)
                 .default_y_bounds(self.display_y_min, self.display_y_max)
@@ -302,16 +305,27 @@ impl eframe::App for EllipticApp {
 
             // Update the display bounds input fields to match the current view
             if !self.reset_view {
-                self.display_x_min_input = format!("{}", bounds.min()[0]);
-                self.display_x_max_input = format!("{}", bounds.max()[0]);
-                self.display_y_min_input = format!("{}", bounds.min()[1]);
-                self.display_y_max_input = format!("{}", bounds.max()[1]);
-
+                // For x-axis, min should be less than max
+                let x_min = bounds.min()[0];
+                let x_max = bounds.max()[0];
+                
+                // For y-axis, ensure min is less than max
+                let (y_min, y_max) = if bounds.min()[1] <= bounds.max()[1] {
+                    (bounds.min()[1], bounds.max()[1])
+                } else {
+                    (bounds.max()[1], bounds.min()[1])
+                };
+                
+                self.display_x_min_input = format!("{}", x_min);
+                self.display_x_max_input = format!("{}", x_max);
+                self.display_y_min_input = format!("{}", y_min);
+                self.display_y_max_input = format!("{}", y_max);
+                
                 // Also update the actual display bounds
-                self.display_x_min = bounds.min()[0];
-                self.display_x_max = bounds.max()[0];
-                self.display_y_min = bounds.min()[1];
-                self.display_y_max = bounds.max()[1];
+                self.display_x_min = x_min;
+                self.display_x_max = x_max;
+                self.display_y_min = y_min;
+                self.display_y_max = y_max;
             }
         });
     }
