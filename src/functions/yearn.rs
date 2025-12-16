@@ -7,7 +7,7 @@ pub const yearn_calc_supply: FixedPointFunction = FixedPointFunction {
     name: "yearn_calc_supply",
     fun: yearn_calc_supply_fun,
     x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 2.0  },
-    y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 100.0 },
+    y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 10.0 },
     num_points: FixedPointNumPoints { default: 100, min: 5, max: 10000 },
 };
 
@@ -39,7 +39,7 @@ fn yearn_calc_supply_fun(vb_prod: U256) -> U256 {
     let mut l  = AMP * vb_sum;
     let mut r  = vb_prod;
 
-    for _ in 0..256 {
+    for _ in 0..=255 {
         // println!("l sp/loop: {l}");
         // println!("s sp/loop: {s}");
         // println!("r sp/loop: {r}");

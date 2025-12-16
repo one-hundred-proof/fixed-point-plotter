@@ -48,7 +48,7 @@ impl Default for EllipticApp {
     fn default() -> Self {
         /* These bounds must be pre-divided by radix^places */
         let (xb, yb) = (fixed_point_fun.x_bounds, fixed_point_fun.y_bounds);
-        let (x_min, x_max, y_min, y_max) = (xb.min, xb.max, yb.min, xb.max);
+        let (x_min, x_max, y_min, y_max) = (xb.min, xb.max, yb.min, yb.max);
         Self {
             // Initialize sampling bounds
             sampling_x_min: x_min,
@@ -234,6 +234,8 @@ impl eframe::App for EllipticApp {
 
         // Central panel for the plot
         egui::CentralPanel::default().show(ctx, |ui| {
+            let mut was_reset = false;
+            if let None = self.current_bounds { was_reset = true }
 
             let mut plot = Plot::new("plot")
                 .default_x_bounds(self.display_x_min, self.display_x_max)
@@ -260,7 +262,6 @@ impl eframe::App for EllipticApp {
             if self.display_y_min > self.display_y_max {
                 std::mem::swap(&mut self.display_y_min, &mut self.display_y_max);
             }
-            let mut was_reset = false;
             if self.reset_view {
                 plot = plot.reset();
                 self.reset_view = false;
