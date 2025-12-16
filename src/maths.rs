@@ -2,6 +2,26 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive; // give us `to_f64`
 use primitive_types::{U256};
 
+pub struct FixedPointNumPoints {
+    pub default: usize,
+    pub min: usize,
+    pub max: usize,
+}
+
+pub struct FixedPointBounds {
+    pub radix: u8,
+    pub places: u32,
+    pub min: f64,
+    pub max: f64
+}
+
+pub struct FixedPointFunction {
+    pub fun: fn(U256) -> U256,
+    pub x_bounds: FixedPointBounds,
+    pub y_bounds: FixedPointBounds,
+    pub num_points: FixedPointNumPoints,
+}
+
 // Converts a U256 fixed-point number to f64 with `decimals` fractional digits
 pub fn u256_to_f64(value: U256, radix: u8, places: u32) -> f64 {
     let factor: BigUint = BigUint::from(radix).pow(places);

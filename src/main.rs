@@ -12,21 +12,11 @@ use crate::functions::*;
 use crate::maths::*;
 
 // Default number of points, will be configurable via UI
-const DEFAULT_NUM_POINTS: usize = 5000;
-const MIN_NUM_POINTS: usize = 100;
-const MAX_NUM_POINTS: usize = 10000;
+// const DEFAULT_NUM_POINTS: usize = 5000;
+// const MIN_NUM_POINTS: usize = 100;
+// const MAX_NUM_POINTS: usize = 10000;
 
-const X_RADIX: u8   = 10;
-const X_PLACES: u32 = 18;
-const X_MIN: f64    = 0.0;
-const X_MAX: f64    = 1e18;
-
-const Y_RADIX: u8   = 10;
-const Y_PLACES: u32 = 18;
-const Y_MIN: f64    = 0.0;
-const Y_MAX: f64    = 1.0;
-
-const plot_fun: fn(U256) -> U256 = x_mul_inverse;
+const fixed_point_fun: FixedPointFunction = yearn_calc_supply_fpf;
 
 pub struct EllipticApp {
     // Sampling bounds (limits on what values can be sampled)
@@ -60,7 +50,8 @@ pub struct EllipticApp {
 impl Default for EllipticApp {
     fn default() -> Self {
         /* These bounds must be pre-divided by radix^places */
-        let (x_min, x_max, y_min, y_max) = (X_MIN, X_MAX, Y_MIN, Y_MAX);
+        let (xb, yb) = (fixed_point_fun.x_bounds, fixed_point_fun.y_bounds);
+        let (x_min, x_max, y_min, y_max) = (xb.min, xb.max, yb.min, xb.max);
         Self {
             // Initialize sampling bounds
             sampling_x_min: x_min,
@@ -82,7 +73,7 @@ impl Default for EllipticApp {
 
             current_bounds: None,
             reset_view: false,
-            num_points: DEFAULT_NUM_POINTS,
+            num_points: fixed_point_fun.num_points.default,
             error_message: None,
             last_error_x: None,
             fps: 0.0,
@@ -195,8 +186,9 @@ impl eframe::App for EllipticApp {
 
             // Add slider for number of points
             ui.horizontal(|ui| {
+                let np = fixed_point_fun.num_points;
                 ui.label("Number of points:");
-                ui.add(Slider::new(&mut self.num_points, MIN_NUM_POINTS..=MAX_NUM_POINTS)
+                ui.add(Slider::new(&mut self.num_points, np.min..=np.max)
                     .logarithmic(true)
                     .text("points"));
             });
@@ -310,7 +302,6 @@ fn sample_curve_u256_safe(
 ) -> (Points<'static>, Points<'static>) {
     // Create a thread-safe counter to track which x value caused a panic
     let current_x_index = Arc::new(AtomicUsize::new(0));
-//    let current_x_index_clone = current_x_index.clone();
 
     // Create a vector to store x values for each point
     let x_values: Vec<f64> = (0..num_points)
@@ -339,11 +330,12 @@ fn sample_curve_u256_safe(
         }
 
         // Convert x_f64 -> U256
-        let x_u256 = f64_to_u256(x, X_RADIX, X_PLACES);
-        let resultY = panic::catch_unwind(AssertUnwindSafe(|| { plot_fun(x_u256) }));
-        match resultY {
+        let (xb, yb) = (fixed_point_fun.x_bounds, fixed_point_fun.y_bounds);
+        let x_u256 = f64_to_u256(x, xb.radix, xb.places);
+        let result_y = panic::catch_unwind(AssertUnwindSafe(|| { (fixed_point_fun.fun)(x_u256) }));
+        match result_y {
             Ok(y_u256) => {
-                let y = u256_to_f64(y_u256, Y_RADIX, Y_PLACES);
+                let y = u256_to_f64(y_u256, yb.radix, yb.places);
                 points_vec.push([x, y]);
             }
             Err(_) => {

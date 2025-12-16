@@ -97,7 +97,14 @@ fn unsafe_mul(a: U256, b: U256) -> U256 {
     return a.overflowing_mul(b).0;
 }
 
-pub fn yearn_calc_supply(vb_prod: U256) -> U256 {
+pub const yearn_calc_supply_fpf: FixedPointFunction = FixedPointFunction {
+    fun: yearn_calc_supply,
+    x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 2.0  },
+    y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 100.0 },
+    num_points: FixedPointNumPoints { default: 100, min: 5, max: 10000 },
+};
+
+fn yearn_calc_supply(vb_prod: U256) -> U256 {
     let debug: bool  = false;
 
 
@@ -144,8 +151,7 @@ pub fn yearn_calc_supply(vb_prod: U256) -> U256 {
         }
         s = sp;
     }
-    if debug { println!("Did not converge. vb_prod = {vb_prod} , r = {r}") }
-    return u256d("666"); // special value
+    panic!("did not converge");
 }
 
 pub fn curve_get_D(x_n: U256) -> U256 {
