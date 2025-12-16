@@ -16,6 +16,7 @@ pub struct FixedPointBounds {
 }
 
 pub struct FixedPointFunction {
+    pub name: &'static str,
     pub fun: fn(U256) -> U256,
     pub x_bounds: FixedPointBounds,
     pub y_bounds: FixedPointBounds,

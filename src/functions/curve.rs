@@ -3,6 +3,7 @@ use crate::vyper::*;
 use crate::maths::*;
 
 pub const curve_get_D: FixedPointFunction = FixedPointFunction {
+    name: "curve_get_D",
     fun: curve_get_D_fun,
     x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1.0  },
     y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1.0 },

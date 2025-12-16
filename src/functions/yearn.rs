@@ -4,6 +4,7 @@ use crate::vyper::*;
 use crate::maths::*;
 
 pub const yearn_calc_supply: FixedPointFunction = FixedPointFunction {
+    name: "yearn_calc_supply",
     fun: yearn_calc_supply_fun,
     x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 2.0  },
     y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 100.0 },
