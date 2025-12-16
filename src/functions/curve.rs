@@ -5,9 +5,9 @@ use crate::maths::*;
 pub const curve_get_D: FixedPointFunction = FixedPointFunction {
     name: "curve_get_D",
     fun: curve_get_D_fun,
-    x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1.0  },
-    y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1.0 },
-    num_points: FixedPointNumPoints { default: 5000, min: 100, max: 10000 },
+    x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 100.0  },
+    y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 100.0 },
+    num_points: FixedPointNumPoints { default: 100, min: 10, max: 2000 },
 };
 
 fn curve_get_D_fun(x_n: U256) -> U256 {
@@ -15,7 +15,7 @@ fn curve_get_D_fun(x_n: U256) -> U256 {
     let _amp = u256d("30000");
     let A_PRECISION = u256d("100");
 
-    let mut _xp = [ f64_to_u256(1.0, 10,20), u256d("10000000") ].to_vec();
+    let mut _xp = [ f64_to_u256(1.0, 10,18) ].to_vec();
     _xp.push(x_n);
 
     // println!("{:?}", _xp);
@@ -67,7 +67,7 @@ fn curve_get_D_fun(x_n: U256) -> U256 {
         }
     }
 
-    return u256d("100000000000000000"); // special error value
+    panic!("Did not converge");
 }
 
 fn curve_get_y_D(D: U256) -> U256 {

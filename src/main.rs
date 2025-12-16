@@ -1,4 +1,4 @@
-use eframe::egui::{self, Color32, Slider};
+use eframe::egui::{self, Color32, Slider, collapsing_header};
 use egui_plot::{Plot, PlotPoints, Points};
 use primitive_types::{U256};
 use std::panic::{self, AssertUnwindSafe};
@@ -10,10 +10,11 @@ mod functions;
 mod vyper;
 
 
-use crate::functions::yearn::*;
+use crate::functions::*;
 use crate::maths::*;
 
-const fixed_point_fun: FixedPointFunction = yearn_calc_supply;
+/* Change this */
+const fixed_point_fun: FixedPointFunction = mul_by_inverse::x_mul_inverse;
 
 pub struct EllipticApp {
     // Sampling bounds (limits on what values can be sampled)
@@ -106,7 +107,7 @@ impl eframe::App for EllipticApp {
             });
 
             // Add controls for adjusting sampling bounds
-            ui.collapsing("Sampling Bounds", |ui| {
+            egui::CollapsingHeader::new("Sampling Bounds").default_open(true).show(ui,|ui| {
                 ui.label("These bounds limit the range of x values that can be sampled.");
 
                 ui.horizontal(|ui| {
@@ -117,16 +118,19 @@ impl eframe::App for EllipticApp {
                     ui.label("X Max:");
                     ui.label(format!("{:.2e}", self.sampling_x_max));
                     ui.text_edit_singleline(&mut self.sampling_x_max_input);
-                    if ui.button("Set").clicked() {
-                        if let Ok(value) = self.sampling_x_max_input.parse::<f64>() {
-                            self.sampling_x_max = value;
-                        }
-                    }
                 });
+
+                if ui.button("Set").clicked() {
+                    if let Ok(value) = self.sampling_x_max_input.parse::<f64>() {
+                        self.sampling_x_max = value;
+                    }
+                }
             });
 
+
+
             // Add controls for adjusting display bounds
-            ui.collapsing("Display Bounds", |ui| {
+            egui::CollapsingHeader::new("Display Bounds").default_open(true).show(ui, |ui| {
                 ui.label("These bounds control what part of the function is displayed.");
 
                 ui.horizontal(|ui| {
@@ -243,17 +247,14 @@ impl eframe::App for EllipticApp {
                 .auto_bounds(true);
 
             // Get the current x bounds from the plot if available, otherwise use display bounds
-            let sample_x_min = if let Some(bounds) = self.current_bounds {
-                bounds.min()[0].max(self.sampling_x_min).min(self.sampling_x_max)
+            let (base_x_min, base_x_max) = if let Some(bounds) = self.current_bounds {
+                (bounds.min()[0], bounds.max()[0])
             } else {
-                self.display_x_min.max(self.sampling_x_min).min(self.sampling_x_max)
+                (self.display_x_min, self.display_x_max)
             };
 
-            let sample_x_max = if let Some(bounds) = self.current_bounds {
-                bounds.max()[0].max(self.sampling_x_min).min(self.sampling_x_max)
-            } else {
-                self.display_x_max.max(self.sampling_x_min).min(self.sampling_x_max)
-            };
+            let sample_x_min = base_x_min.max(self.sampling_x_min).min(self.sampling_x_max);
+            let sample_x_max = base_x_max.max(self.sampling_x_min).min(self.sampling_x_max);
 
             // Sample the curve with panic handling using the current view bounds for x
             let (points, errorPoints) = sample_curve_u256_safe(self.num_points, sample_x_min, sample_x_max);
@@ -291,7 +292,8 @@ impl eframe::App for EllipticApp {
 }
 
 
-/// Safely sample the curve with panic handling. An x values for which the function reverts will be pushed into a second set of points called `errorPoints`
+/// Safely sample the curve with panic handling.
+/// Any x values for which the function reverts will be pushed into a second set of points called `errorPoints`
 /// These can be plotted in a different colour
 fn sample_curve_u256_safe(
     num_points: usize,
@@ -355,7 +357,11 @@ fn sample_curve_u256_safe(
 }
 
 fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions::default();
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1024.0, 768.0])
+            .with_min_inner_size([300.0, 220.0]),
+        ..Default::default()};
     eframe::run_native(
         "Fixed point plotter",
         options,

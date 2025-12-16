@@ -34,8 +34,8 @@ fn full_mul_div(x: U256, y: U256, z: U256) -> U256 {
 pub const x_mul_inverse: FixedPointFunction = FixedPointFunction {
     name: "x_mul_inverse",
     fun: x_mul_inverse_fun,
-    x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1.0  },
-    y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1e18 },
+    x_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1e18 },
+    y_bounds: FixedPointBounds { radix: 10, places: 18, min: 0.0, max: 1.0 },
     num_points: FixedPointNumPoints { default: 5000, min: 100, max: 10000 },
 };
 
