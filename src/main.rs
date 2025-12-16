@@ -1,6 +1,5 @@
-use eframe::egui::{self, Color32, Slider, collapsing_header};
+use eframe::egui::{self, Color32, Slider};
 use egui_plot::{Plot, PlotPoints, Points};
-use primitive_types::{U256};
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -14,7 +13,9 @@ use crate::functions::*;
 use crate::maths::*;
 
 /* Change this */
-const fixed_point_fun: FixedPointFunction = mul_by_inverse::x_mul_inverse;
+const FIXED_POINT_FUN: FixedPointFunction = mul_by_inverse::x_mul_inverse;
+
+const MARGIN: f64 = 0.03;
 
 pub struct EllipticApp {
     // Sampling bounds (limits on what values can be sampled)
@@ -48,7 +49,7 @@ pub struct EllipticApp {
 impl Default for EllipticApp {
     fn default() -> Self {
         /* These bounds must be pre-divided by radix^places */
-        let (xb, yb) = (fixed_point_fun.x_bounds, fixed_point_fun.y_bounds);
+        let (xb, yb) = (FIXED_POINT_FUN.x_bounds, FIXED_POINT_FUN.y_bounds);
         let (x_min, x_max, y_min, y_max) = (xb.min, xb.max, yb.min, yb.max);
         Self {
             // Initialize sampling bounds
@@ -71,7 +72,7 @@ impl Default for EllipticApp {
 
             current_bounds: None,
             reset_view: false,
-            num_points: fixed_point_fun.num_points.default,
+            num_points: FIXED_POINT_FUN.num_points.default,
             error_message: None,
             last_error_x: None,
             fps: 0.0,
@@ -100,7 +101,7 @@ impl eframe::App for EllipticApp {
         ctx.request_repaint();
         egui::TopBottomPanel::top("input_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("Plot (U256 scaled)");
+                ui.heading(FIXED_POINT_FUN.name);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                     ui.label(format!("FPS: {:.1}", self.fps));
                 });
@@ -187,7 +188,7 @@ impl eframe::App for EllipticApp {
 
             // Add slider for number of points
             ui.horizontal(|ui| {
-                let np = fixed_point_fun.num_points;
+                let np = FIXED_POINT_FUN.num_points;
                 ui.label("Number of points:");
                 ui.add(Slider::new(&mut self.num_points, np.min..=np.max)
                     .logarithmic(true)
@@ -273,8 +274,15 @@ impl eframe::App for EllipticApp {
                 plot_ui.points(points);
                 plot_ui.points(errorPoints);
                 if was_reset {
-                    plot_ui.set_plot_bounds_x(self.display_x_min..=self.display_x_max);
-                    plot_ui.set_plot_bounds_y(self.display_y_min..=self.display_y_max);
+                    let width = self.display_x_max - self.display_x_min;
+                    let height = self.display_y_max - self.display_y_min;
+                    let x_min = self.display_x_min - width * MARGIN;
+                    let x_max = self.display_x_max + width * MARGIN;
+                    let y_min = self.display_y_min - height * MARGIN;
+                    let y_max = self.display_y_max + height * MARGIN;
+
+                    plot_ui.set_plot_bounds_x(x_min..=x_max);
+                    plot_ui.set_plot_bounds_y(y_min..=y_max);
                 }
             });
 
@@ -330,9 +338,9 @@ fn sample_curve_u256_safe(
         }
 
         // Convert x_f64 -> U256
-        let (xb, yb) = (fixed_point_fun.x_bounds, fixed_point_fun.y_bounds);
+        let (xb, yb) = (FIXED_POINT_FUN.x_bounds, FIXED_POINT_FUN.y_bounds);
         let x_u256 = f64_to_u256(x, xb.radix, xb.places);
-        let result_y = panic::catch_unwind(AssertUnwindSafe(|| { (fixed_point_fun.fun)(x_u256) }));
+        let result_y = panic::catch_unwind(AssertUnwindSafe(|| { (FIXED_POINT_FUN.fun)(x_u256) }));
         match result_y {
             Ok(y_u256) => {
                 let y = u256_to_f64(y_u256, yb.radix, yb.places);
