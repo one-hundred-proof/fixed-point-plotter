@@ -7,16 +7,13 @@ use std::sync::Arc;
 
 mod maths;
 mod functions;
+mod vyper;
 
-use crate::functions::*;
+
+use crate::functions::yearn::*;
 use crate::maths::*;
 
-// Default number of points, will be configurable via UI
-// const DEFAULT_NUM_POINTS: usize = 5000;
-// const MIN_NUM_POINTS: usize = 100;
-// const MAX_NUM_POINTS: usize = 10000;
-
-const fixed_point_fun: FixedPointFunction = yearn_calc_supply_fpf;
+const fixed_point_fun: FixedPointFunction = yearn_calc_supply;
 
 pub struct EllipticApp {
     // Sampling bounds (limits on what values can be sampled)

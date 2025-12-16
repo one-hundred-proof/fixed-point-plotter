@@ -48,3 +48,11 @@ pub fn f64_to_u256(value: f64, radix: u8, places: u32) -> U256 {
         U256::from(scaled as u128)
     }
 }
+
+pub fn u256d(s: &str) -> U256 {
+    return U256::from_dec_str(s).unwrap();
+}
+
+pub fn u256f<T>(x: T) -> U256 where U256: From<T> {
+    return U256::from(x);
+}
